@@ -3,6 +3,7 @@
 #include "GlobalState.hpp"
 #include "mpi/MpiController.hpp"
 #include <Eigen/Dense>
+#include <Module.hpp>
 #include <iostream>
 #include <vector>
 
@@ -254,5 +255,14 @@ inline int &minLayerRank() {
 inline int &maxLayerRank() {
   static int max_layer_rank = globalState().getLayerRankBound()[1];
   return max_layer_rank;
+}
+
+inline std::vector<Module *> &globalModel() {
+  static std::vector<Module *> global_model;
+  return global_model;
+}
+inline Eigen::MatrixXf &firstLayerInput() {
+  static Eigen::MatrixXf first_layer_input;
+  return first_layer_input;
 }
 } // namespace DeepLearningFramework
