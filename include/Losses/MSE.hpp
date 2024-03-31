@@ -49,6 +49,7 @@ public:
 private:
   std::string _type = "Loss";
   std::string _name = "MSE";
+  Eigen::MatrixXf _dloss;
 };
 }; // namespace Losses
 }; // namespace DeepLearningFramework

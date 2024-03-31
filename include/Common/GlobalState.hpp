@@ -1,10 +1,10 @@
 #pragma once
 
-#include "GlobalState.hpp"
 #include "mpi/MpiController.hpp"
 #include <Eigen/Dense>
 #include <Module.hpp>
 #include <iostream>
+#include <random>
 #include <vector>
 
 #include <condition_variable>
@@ -14,7 +14,6 @@
 #include <mutex>
 #include <queue>
 #include <thread>
-#include <type_traits>
 
 namespace DeepLearningFramework {
 
@@ -196,17 +195,35 @@ public:
 
   void initGlobalWeights() {
     const int mpi_rank = globalController().mpiRank();
+
+    std::mt19937 rng(28);
+    std::uniform_real_distribution<float> dist(0.0, 0.5);
+    auto rand = [&rng, &dist]() { return dist(rng); };
+
     for (int i = 1; i < _node_layers_size[mpi_rank].size(); i = i + _interval) {
-      _global_weigths.emplace_back(Eigen::MatrixXf::Random(
-          _node_layers_size[mpi_rank][i - 1], _node_layers_size[mpi_rank][i]));
+      _global_weigths.emplace_back(
+          Eigen::MatrixXf::NullaryExpr(_node_layers_size[mpi_rank][i - 1],
+                                       _node_layers_size[mpi_rank][i], rand));
+      // _global_weigths.emplace_back(Eigen::MatrixXf::Random(
+      //     _node_layers_size[mpi_rank][i - 1],
+      //     _node_layers_size[mpi_rank][i]));
     }
   }
 
   void initGlobalBias() {
     const int mpi_rank = globalController().mpiRank();
+    std::mt19937 rng(28);
+    std::uniform_real_distribution<float> dist(0.0, 0.5);
+    auto rand = [&rng, &dist]() { return dist(rng); };
+
     for (int i = 1; i < _node_layers_size[mpi_rank].size(); i = i + _interval) {
-      _global_bias.emplace_back(
-          Eigen::MatrixXf::Random(1, _node_layers_size[mpi_rank][i]));
+      _global_bias.emplace_back(Eigen::MatrixXf::NullaryExpr(
+          1, _node_layers_size[mpi_rank][i], rand));
+      // _global_bias.emplace_back(
+      //     Eigen::MatrixXf::Random(1, _node_layers_size[mpi_rank][i]));
+    }
+    for (int i = 0; i < _global_bias.size(); i++) {
+      std::cout << _global_bias[i].sum() << std::endl;
     }
   }
 
@@ -220,8 +237,14 @@ public:
 
   void setGlobalBias() {
     const int layers_num = _layers_size.size();
+
+    std::mt19937 rng(28);
+    std::uniform_real_distribution<float> dist(0.0, 0.5);
+    auto rand = [&rng, &dist]() { return dist(rng); };
     for (int i = 1; i < layers_num; ++i) {
-      _global_bias.emplace_back(Eigen::MatrixXf::Random(1, _layers_size[i]));
+      _global_bias.emplace_back(
+          Eigen::MatrixXf::NullaryExpr(1, _layers_size[i], rand));
+      // _global_bias.emplace_back(Eigen::MatrixXf::Random(1, _layers_size[i]));
     }
   }
 
@@ -264,5 +287,25 @@ inline std::vector<Module *> &globalModel() {
 inline Eigen::MatrixXf &firstLayerInput() {
   static Eigen::MatrixXf first_layer_input;
   return first_layer_input;
+}
+// inline uint32_t &globalMicroBatchIdx() {
+//   static uint32_t global_micro_batch_idx = 0;
+//   return global_micro_batch_idx;
+// }
+inline uint32_t &globalMicroBatchNum() {
+  static uint32_t global_micro_batch_num = 0;
+  return global_micro_batch_num;
+}
+inline bool &microBatchLossFlag() {
+  static bool micro_batch_loss_flag = false;
+  return micro_batch_loss_flag;
+}
+inline Eigen::MatrixXf &microBatchGradSum() {
+  static Eigen::MatrixXf micro_batch_grad_sum;
+  return micro_batch_grad_sum;
+}
+inline std::vector<float> &globalMicroGrad(int count) {
+  static std::vector<float> micro_final_grad_buf(count, 0);
+  return micro_final_grad_buf;
 }
 } // namespace DeepLearningFramework

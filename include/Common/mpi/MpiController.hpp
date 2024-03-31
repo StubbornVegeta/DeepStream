@@ -21,6 +21,10 @@ inline bool &isSyncStopped() {
   static bool is_sync_stopped = false;
   return is_sync_stopped;
 }
+inline uint32_t &globalMicroBatchIdx() {
+  static uint32_t global_micro_batch_idx = 0;
+  return global_micro_batch_idx;
+}
 
 struct TrainStatus {
   int epoch;
@@ -189,14 +193,19 @@ public:
     }
   }
 
-  void mpiForwardSend(int &forward_flag) {
+  void mpiForwardSend(int forward_flag) {
     if (mpi_rank < mpi_size - 1) {
+      // MPI_Send(&forward_flag, 1, MPI_INT, mpi_rank + 1,
+      //          FORWARD_FLAG + 10 * globalMicroBatchIdx(), mpi_comm);
       MPI_Send(&forward_flag, 1, MPI_INT, mpi_rank + 1, FORWARD_FLAG, mpi_comm);
     }
   }
 
   void mpiForwardRecv(int &forward_flag) {
     if (mpi_rank > 0) {
+      // MPI_Recv(&forward_flag, 1, MPI_INT, mpi_rank - 1,
+      //          FORWARD_FLAG + 10 * globalMicroBatchIdx(), mpi_comm,
+      //          MPI_STATUS_IGNORE);
       MPI_Recv(&forward_flag, 1, MPI_INT, mpi_rank - 1, FORWARD_FLAG, mpi_comm,
                MPI_STATUS_IGNORE);
     }
@@ -229,8 +238,10 @@ public:
     }
   }
 
-  void mpiBackwardSend(int &backward_flag) {
+  void mpiBackwardSend(int backward_flag) {
     if (mpi_rank > 0) {
+      // MPI_Send(&backward_flag, 1, MPI_INT, mpi_rank - 1,
+      //          BACKWARD_FLAG + 10 * globalMicroBatchIdx(), mpi_comm);
       MPI_Send(&backward_flag, 1, MPI_INT, mpi_rank - 1, BACKWARD_FLAG,
                mpi_comm);
     }
@@ -238,6 +249,9 @@ public:
 
   void mpiBackwardRecv(int &backward_flag) {
     if (mpi_rank < mpi_size - 1) {
+      // MPI_Recv(&backward_flag, 1, MPI_INT, mpi_rank + 1,
+      //          BACKWARD_FLAG + 10 * globalMicroBatchIdx(), mpi_comm,
+      //          MPI_STATUS_IGNORE);
       MPI_Recv(&backward_flag, 1, MPI_INT, mpi_rank + 1, BACKWARD_FLAG,
                mpi_comm, MPI_STATUS_IGNORE);
     }

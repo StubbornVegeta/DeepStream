@@ -72,6 +72,8 @@ private:
   std::string _type = "Layer";
   std::string _name = "Linear";
   Eigen::MatrixXf _forward_input;
+  Eigen::MatrixXf _micro_grad;
+  Eigen::MatrixXf _micro_bias_grad;
   int _input_size = -1;
   int _output_size = -1;
   // Eigen::MatrixXf _weights;

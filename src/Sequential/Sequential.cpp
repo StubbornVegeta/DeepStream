@@ -5,6 +5,7 @@
 #include "Sequential.hpp"
 #include "Common.hpp"
 #include "GlobalState.hpp"
+#include "mpi/MpiController.hpp"
 #include <algorithm>
 
 #include <iostream>
@@ -35,6 +36,7 @@ Sequential::Sequential(std::vector<Module *> &model, Losses::MSE loss) {
 
   if (globalController().mpiRank() == 0) {
     _forward_flag = 1;
+    // _forward_flag = 0;
   } else {
     _forward_flag = 0;
   }
@@ -85,6 +87,11 @@ void Sequential::forward(Eigen::MatrixXf &x, const std::string &mode) {
 
       if (_forward_flag) {
         _model[m]->forward(x, last_layer_out);
+        // Log() << "forward: " << 3 - globalMicroBatchIdx();
+        if (m == _model.size() - 1) {
+          int success_flag;
+          globalController().mpiBackwardSend(success_flag);
+        }
       }
       if (m != _model.size() - 1) {
         continue;
@@ -99,13 +106,29 @@ void Sequential::forward(Eigen::MatrixXf &x, const std::string &mode) {
       globalController().mpiForwardSend(x_shape);
 
       globalController().mpiForwardSend(x_array, (int)x.size());
-      _forward_flag = 0;
+      int success_flag;
+      globalController().mpiBackwardRecv(success_flag);
+      if (globalController().mpiRank() != 0) {
+        _forward_flag = 0;
+      }
+
+      // _forward_flag = 0;
+      // if (globalMicroBatchIdx() == 0) {
+      //   _forward_flag = 0;
+      // }
+      // if (globalController().mpiRank() == 0 && globalMicroBatchIdx() == 0) {
+      //   _forward_flag = 0;
+      // }
+      // else {
+      //   _forward_flag = 0;
+      // }
       if (mode != "train" && globalController().mpiRank() == 0) {
         _forward_flag = 1;
       }
     }
   }
-  if (globalController().mpiRank() == globalController().mpiSize() - 1) {
+  if (globalController().mpiRank() == globalController().mpiSize() - 1 &&
+      globalMicroBatchIdx() == 0) {
     _backward_flag = 1;
   }
 }
@@ -125,6 +148,20 @@ void Sequential::backward(float &loss, const Eigen::MatrixXf &y,
       _loss.forward(loss, y, y_pred);
       _loss.backward(grad, y, y_pred);
     }
+    // if (globalController().mpiRank() == globalController().mpiSize() - 1) {
+    //   if (microBatchLossFlag()) {
+    //     _loss.forward(loss, y, y_pred);
+    //     _loss.backward(grad, y, y_pred);
+    //     if (globalMicroBatchIdx() == globalMicroBatchNum() - 1) {
+    //       microBatchGradSum() = grad;
+    //     } else {
+    //       microBatchGradSum() += grad;
+    //     }
+    //   } else {
+    //     grad = microBatchGradSum();
+    //     microBatchGradSum().setZero();
+    //   }
+    // }
   }
 
   for (int m = _model.size() - 1; m > -1; m--) {
@@ -158,6 +195,11 @@ void Sequential::backward(float &loss, const Eigen::MatrixXf &y,
 
       if (_backward_flag) {
         _model[m]->backward(grad, last_layer_out);
+        // Log() << "backward: " << globalMicroBatchIdx();
+        if (m == 0) {
+          int success_flag;
+          globalController().mpiForwardSend(success_flag);
+        }
         tag++;
       }
       if (m > 0) {
@@ -171,11 +213,27 @@ void Sequential::backward(float &loss, const Eigen::MatrixXf &y,
       globalController().mpiBackwardSend(grad_shape);
       globalController().mpiBackwardSend(_backward_flag);
       globalController().mpiBackwardSend(grad_array, grad.size());
-      _backward_flag = 0;
+      int success_flag;
+      globalController().mpiForwardRecv(success_flag);
+      if (globalController().mpiRank() != globalController().mpiSize() - 1) {
+        _backward_flag = 0;
+      }
+      // _backward_flag = 0;
+      // if (globalMicroBatchIdx() == 0) {
+      //   _backward_flag = 0;
+      // }
+      // if (globalController().mpiRank() == globalController().mpiSize() - 1
+      // &&
+      //     globalMicroBatchIdx() == 0) {
+      //   _backward_flag = 0;
+      // } else {
+      //   _backward_flag = 0;
+      // }
     }
   }
 
-  if (globalController().mpiRank() == 0) {
+  if (globalController().mpiRank() == 0 && globalMicroBatchIdx() == 0 &&
+      microBatchLossFlag() == false) {
     _forward_flag = 1;
   }
 }

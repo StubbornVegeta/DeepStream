@@ -57,14 +57,24 @@ int main() {
   uint32_t epochs = 200, step = 1;
   constexpr auto batch_size = 64;
   constexpr auto feature_dim = 4;
+  constexpr auto micro_batch_size = 32;
 
   // number of train and test samples
   std::vector<float> train_acc, test_acc;
 
   // Train model
-  Trainer::trainModel<batch_size, feature_dim>(train_acc, test_acc, model,
-                                               epochs, y_train, X_train, y_test,
-                                               X_test, step);
+  if (globalParallelismMode() == PIPELINE_MODEL_PARALLELISM) {
+    Trainer::trainModel<batch_size, feature_dim, micro_batch_size>(
+        train_acc, test_acc, model, epochs, y_train, X_train, y_test, X_test,
+        step);
+    // Trainer::trainModel<batch_size, feature_dim>(train_acc, test_acc, model,
+    //                                              epochs, y_train, X_train,
+    //                                              y_test, X_test, step);
+  } else {
+    Trainer::trainModel<batch_size, feature_dim>(train_acc, test_acc, model,
+                                                 epochs, y_train, X_train,
+                                                 y_test, X_test, step);
+  }
 
   finalize();
 }

@@ -46,6 +46,14 @@ public:
              const Eigen::MatrixXf &X_train, const Eigen::MatrixXf &y_test,
              const Eigen::MatrixXf &X_test, uint32_t step);
 
+  template <uint32_t batch_size, uint32_t feature_dim,
+            uint32_t micro_batch_size>
+  static void
+  trainModel(std::vector<float> train_acc, std::vector<float> test_acc,
+             Sequential &model, uint32_t epochs, const Eigen::MatrixXf &y_train,
+             const Eigen::MatrixXf &X_train, const Eigen::MatrixXf &y_test,
+             const Eigen::MatrixXf &X_test, uint32_t step);
+
 private:
   /**
    * Calculate and add current accuracy to history

@@ -63,31 +63,61 @@ void Linear::backward(Eigen::MatrixXf &din, const Eigen::MatrixXf &dout) {
   switch (globalParallelismMode()) {
   case DATA_PARALLELISM: {
     (*_weights) -= _lr * (_forward_input.transpose() * dout);
+    (*_bias) -= _lr * dout.colwise().mean();
+    din = dout * _weights->transpose();
     break;
   }
   // Re-Materializaition
   case PIPELINE_MODEL_PARALLELISM: {
     Eigen::MatrixXf tmp_forward_input = firstLayerInput();
 
-    for (int i = 0; i < _layer_rank - minLayerRank(); i++) {
-      globalModel()[2 * i]->forward(tmp_forward_input, tmp_forward_input);
-      // activation function
-      globalModel()[2 * i + 1]->forward(tmp_forward_input, tmp_forward_input);
+    if (microBatchLossFlag() || globalMicroBatchNum() == 0) {
+      for (int i = 0; i < _layer_rank - minLayerRank(); i++) {
+        globalModel()[2 * i]->forward(tmp_forward_input, tmp_forward_input);
+        // activation function
+        globalModel()[2 * i + 1]->forward(tmp_forward_input, tmp_forward_input);
+      }
     }
-    (*_weights) -= _lr * (tmp_forward_input.transpose() * dout);
+
+    if (microBatchLossFlag()) {
+      if (globalMicroBatchIdx() == globalMicroBatchNum() - 1) {
+        _micro_grad = _lr * (tmp_forward_input.transpose() * dout);
+        _micro_bias_grad = _lr * dout.colwise().mean();
+      } else {
+        _micro_grad += _lr * (tmp_forward_input.transpose() * dout);
+        _micro_bias_grad += _lr * dout.colwise().mean();
+      }
+      din = dout * _weights->transpose();
+      // (*_weights) -= _lr * (tmp_forward_input.transpose() * dout);
+    } else if (globalMicroBatchNum() == 0) {
+      (*_weights) -= _lr * (tmp_forward_input.transpose() * dout);
+      (*_bias) -= _lr * dout.colwise().mean();
+      din = dout * _weights->transpose();
+    } else {
+      (*_weights) -= _micro_grad;
+      (*_bias) -= _micro_bias_grad;
+      // (*_bias) -= _micro_bias_grad / globalMicroBatchNum();
+      _micro_grad.setZero();
+      _micro_bias_grad.setZero();
+      din = dout * _weights->transpose();
+
+      // (*_weights) -= _lr * (tmp_forward_input.transpose() * dout);
+    }
     break;
   }
   case TENSOR_MODEL_PARALLELISM: {
     (*_weights) -= _lr * (_forward_input.transpose() * dout);
+    (*_bias) -= _lr * dout.colwise().mean();
+    din = dout * _weights->transpose();
     break;
   }
   }
   // update weights and bias
-  (*_bias) -= _lr * dout.colwise().mean();
+  // (*_bias) -= _lr * dout.colwise().mean();
 
   // Calculate the gradient component for each input, which corresponds to the
   // output of the previous layer.
-  din = dout * _weights->transpose();
+  // din = dout * _weights->transpose();
 }
 
 void Linear::printDescription() {
