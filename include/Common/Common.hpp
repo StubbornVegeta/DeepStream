@@ -145,56 +145,9 @@ inline void pushGradients(Eigen::MatrixXf &grad, const int &tag) {
 
   global_controller.mpiPush<float>(send_grad_buf, recv_grad_buf, count, tag);
 
-  // std::vector<float> cur_grad_buf(recv_grad_buf, recv_grad_buf + count);
-  // for (int i = 0; i < count; i++) {
-  //   globalMicroGrad(count)[i] += cur_grad_buf[i];
-  // }
-  //
-  // if (global_controller.mpiRank() == 0 && globalMicroBatchIdx() == 0) {
-  //   convertArrayToMatrix(globalMicroGrad(count).data(), grad);
-  //   std::cout << "Rank: " << global_controller.mpiRank() << ", update grad"
-  //             << std::endl;
-  //   for (int i = 0; i < count; i++) {
-  //     globalMicroGrad(count)[i] = 0;
-  //   }
-  // }
   if (global_controller.mpiRank() == 0) {
     convertArrayToMatrix(recv_grad_buf, grad);
-    // grad = grad / global_controller.mpiSize();
   }
-}
-
-inline void updateMicroGradients(Eigen::MatrixXf &grad, const int &tag) {
-  MPIController &global_controller = globalController();
-
-  int count = grad.rows() * grad.cols();
-  float send_grad_buf[count];
-  float recv_grad_buf[count];
-  if (global_controller.mpiRank() == 0) {
-    convertMatrixToArray(grad, recv_grad_buf);
-  } else {
-    convertMatrixToArray(grad, send_grad_buf);
-  }
-
-  global_controller.mpiPush<float>(send_grad_buf, recv_grad_buf, count, tag);
-
-  std::vector<float> cur_grad_buf(recv_grad_buf, recv_grad_buf + count);
-  for (int i = 0; i < count; i++) {
-    globalMicroGrad(count)[i] += cur_grad_buf[i];
-  }
-
-  if (global_controller.mpiRank() == 0 && globalMicroBatchIdx() == 0) {
-    convertArrayToMatrix(globalMicroGrad(count).data(), grad);
-    std::cout << "Rank: " << global_controller.mpiRank() << ", update grad"
-              << std::endl;
-    for (int i = 0; i < count; i++) {
-      globalMicroGrad(count)[i] = 0;
-    }
-  }
-  // if (global_controller.mpiRank() == 0) {
-  //   convertArrayToMatrix(recv_grad_buf, grad);
-  //   // grad = grad / global_controller.mpiSize();
-  // }
 }
 
 inline void barrier() {

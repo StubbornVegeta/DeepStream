@@ -87,7 +87,6 @@ void Sequential::forward(Eigen::MatrixXf &x, const std::string &mode) {
 
       if (_forward_flag) {
         _model[m]->forward(x, last_layer_out);
-        // Log() << "forward: " << 3 - globalMicroBatchIdx();
         if (m == _model.size() - 1) {
           int success_flag;
           globalController().mpiBackwardSend(success_flag);
@@ -112,16 +111,6 @@ void Sequential::forward(Eigen::MatrixXf &x, const std::string &mode) {
         _forward_flag = 0;
       }
 
-      // _forward_flag = 0;
-      // if (globalMicroBatchIdx() == 0) {
-      //   _forward_flag = 0;
-      // }
-      // if (globalController().mpiRank() == 0 && globalMicroBatchIdx() == 0) {
-      //   _forward_flag = 0;
-      // }
-      // else {
-      //   _forward_flag = 0;
-      // }
       if (mode != "train" && globalController().mpiRank() == 0) {
         _forward_flag = 1;
       }
@@ -148,20 +137,6 @@ void Sequential::backward(float &loss, const Eigen::MatrixXf &y,
       _loss.forward(loss, y, y_pred);
       _loss.backward(grad, y, y_pred);
     }
-    // if (globalController().mpiRank() == globalController().mpiSize() - 1) {
-    //   if (microBatchLossFlag()) {
-    //     _loss.forward(loss, y, y_pred);
-    //     _loss.backward(grad, y, y_pred);
-    //     if (globalMicroBatchIdx() == globalMicroBatchNum() - 1) {
-    //       microBatchGradSum() = grad;
-    //     } else {
-    //       microBatchGradSum() += grad;
-    //     }
-    //   } else {
-    //     grad = microBatchGradSum();
-    //     microBatchGradSum().setZero();
-    //   }
-    // }
   }
 
   for (int m = _model.size() - 1; m > -1; m--) {
@@ -218,17 +193,6 @@ void Sequential::backward(float &loss, const Eigen::MatrixXf &y,
       if (globalController().mpiRank() != globalController().mpiSize() - 1) {
         _backward_flag = 0;
       }
-      // _backward_flag = 0;
-      // if (globalMicroBatchIdx() == 0) {
-      //   _backward_flag = 0;
-      // }
-      // if (globalController().mpiRank() == globalController().mpiSize() - 1
-      // &&
-      //     globalMicroBatchIdx() == 0) {
-      //   _backward_flag = 0;
-      // } else {
-      //   _backward_flag = 0;
-      // }
     }
   }
 

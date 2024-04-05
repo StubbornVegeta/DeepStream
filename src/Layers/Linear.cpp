@@ -3,8 +3,9 @@
  */
 
 #include "Linear.hpp"
-#include "Eigen/src/Core/util/IndexedViewHelper.h"
+
 #include "GlobalState.hpp"
+#include <Common.hpp>
 #include <algorithm>
 
 #include <iostream>
@@ -87,21 +88,20 @@ void Linear::backward(Eigen::MatrixXf &din, const Eigen::MatrixXf &dout) {
         _micro_grad += _lr * (tmp_forward_input.transpose() * dout);
         _micro_bias_grad += _lr * dout.colwise().mean();
       }
-      din = dout * _weights->transpose();
-      // (*_weights) -= _lr * (tmp_forward_input.transpose() * dout);
+      din = dout * ((*_weights) - _lr * (tmp_forward_input.transpose() * dout))
+                       .transpose();
     } else if (globalMicroBatchNum() == 0) {
       (*_weights) -= _lr * (tmp_forward_input.transpose() * dout);
       (*_bias) -= _lr * dout.colwise().mean();
       din = dout * _weights->transpose();
-    } else {
+    }
+    // update accumulated gradient
+    else {
       (*_weights) -= _micro_grad;
-      (*_bias) -= _micro_bias_grad;
-      // (*_bias) -= _micro_bias_grad / globalMicroBatchNum();
+      (*_bias) -= _micro_bias_grad / globalMicroBatchNum();
       _micro_grad.setZero();
       _micro_bias_grad.setZero();
       din = dout * _weights->transpose();
-
-      // (*_weights) -= _lr * (tmp_forward_input.transpose() * dout);
     }
     break;
   }
@@ -112,12 +112,6 @@ void Linear::backward(Eigen::MatrixXf &din, const Eigen::MatrixXf &dout) {
     break;
   }
   }
-  // update weights and bias
-  // (*_bias) -= _lr * dout.colwise().mean();
-
-  // Calculate the gradient component for each input, which corresponds to the
-  // output of the previous layer.
-  // din = dout * _weights->transpose();
 }
 
 void Linear::printDescription() {

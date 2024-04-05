@@ -84,11 +84,6 @@ void Trainer::trainModel(std::vector<float> train_acc,
     for (uint32_t batch_idx = 0; batch_idx < batch_num; batch_idx++) {
       float batch_loss = 0.f;
       globalTrainStatus().setStatus(i, batch_idx);
-      // Eigen::MatrixXf X_batch =
-      //     X_train.block<batch_size, feature_dim>(batch_idx * batch_size, 0);
-      // Eigen::MatrixXf y_batch =
-      //     y_train.block<batch_size, 1>(batch_idx * batch_size, 0);
-      // y_batch = oneHotEncoding(y_batch);
 
       std::vector<Eigen::MatrixXf> X_micro_batch(micro_batch_num);
       std::vector<Eigen::MatrixXf> y_micro_batch(micro_batch_num);
@@ -117,20 +112,15 @@ void Trainer::trainModel(std::vector<float> train_acc,
         globalMicroBatchIdx()--;
         model.backward(micro_batch_loss, y_micro_batch[micro_batch_idx - 1],
                        X_micro_batch[micro_batch_idx - 1]);
-        batch_loss += micro_batch_loss;
+        batch_loss += micro_batch_loss / globalMicroBatchNum();
       }
 
+      loss += batch_loss;
+
+      // update weights and bias
       globalMicroBatchIdx() = micro_batch_num;
       microBatchLossFlag() = false;
-      for (uint32_t micro_batch_idx = micro_batch_num; micro_batch_idx > 0;
-           micro_batch_idx--) {
-        globalMicroBatchIdx()--;
-        model.backward(batch_loss, y_micro_batch[micro_batch_idx - 1],
-                       X_micro_batch[micro_batch_idx - 1]);
-      }
-      // model.forward(X_batch);
-      // model.backward(batch_loss, y_batch, X_batch);
-      loss += batch_loss;
+      model.backward(batch_loss, y_micro_batch[0], X_micro_batch[0]);
     }
 
     addAccuracy(train_acc, model, y_train, X_train);

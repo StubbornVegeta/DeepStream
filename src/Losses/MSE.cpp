@@ -3,6 +3,7 @@
  */
 
 #include "MSE.hpp"
+#include "Common.hpp"
 #include "GlobalState.hpp"
 
 #include <iostream>
@@ -18,7 +19,6 @@ void MSE::forward(float &loss, const Eigen::MatrixXf &y,
 
 void MSE::backward(Eigen::MatrixXf &dloss, const Eigen::MatrixXf &y,
                    const Eigen::MatrixXf &y_pred) {
-  // dloss = 2.f * (y_pred - y) / y.rows();
   switch (globalParallelismMode()) {
   case DATA_PARALLELISM: {
     dloss = 2.f * (y_pred - y) / y.rows();
@@ -35,7 +35,7 @@ void MSE::backward(Eigen::MatrixXf &dloss, const Eigen::MatrixXf &y,
     } else if (globalMicroBatchNum() == 0) {
       dloss = 2.f * (y_pred - y) / y.rows();
     } else {
-      dloss = _dloss;
+      dloss = _dloss / globalMicroBatchNum();
       _dloss.setZero();
     }
     break;
